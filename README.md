@@ -63,7 +63,7 @@ ROBOT_API_KEY_ID=<your_robot_api_key_id>
 ROBOT_ADDRESS=<your_robot_address>
 ```
 
-Replace `<your_robot_api_key>`, `<your_robot_api_key_id>`, and `<your_robot_address>` with the appropriate values for your Viam robot.
+Replace `<your_robot_api_key>`, `<your_robot_api_key_id>`, and `<your_robot_address>` with the appropriate values for your Viam robot from the [Viam app](https://app.viam.com/robots).
 
 ### 5. Run the Script
 
