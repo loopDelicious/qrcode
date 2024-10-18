@@ -11,6 +11,8 @@ from viam.services.vision import VisionClient
 import numpy as np
 import cv2
 from pyzbar.pyzbar import decode
+import webbrowser
+import subprocess
 
 load_dotenv()
 LOGGER = getLogger(__name__)
@@ -68,31 +70,40 @@ def preprocess_image(image):
     return resized_image
 
 def trigger_action_on_qr_code(qr_data, image):
-    if image is None:
-        print("Error: Image is None, cannot display")
-        return
-    print(f"Triggering action based on QR Code: {qr_data}")
-    # Display the detected QR code with bounding box
-    cv2.imshow("Detected QR Code", image)
-    cv2.waitKey(0) # Wait indefinitely until a key is pressed
-
-def trigger_action_on_qr_code(qr_data, image):
     print(f"Triggering action based on QR Code: {qr_data}")
     # Check if the image is properly captured
     if image is None:
         print("Error: Image is None, cannot display")
         return
     
-    # Check if imshow is working and image has valid dimensions
-    print(f"Image dimensions: {image.shape}")  # Check image shape
-
     # Stop the feed and open a window to show the QR code
     cv2.imshow("Detected QR Code", image)
-    cv2.waitKey(0)  # Wait indefinitely until a key is pressed
+    cv2.waitKey(1)  # Wait for a brief moment before continuing
+    
+    # Ensure the QR data contains a URL scheme and open it
+    if not qr_data.startswith("http"):
+        qr_data = "http://" + qr_data
+
+    print(f"Opening URL: {qr_data}")
+    # webbrowser.open(qr_data)
+    try:
+        subprocess.Popen(["xdg-open", qr_data])  # Linux
+    except FileNotFoundError:
+        try:
+            subprocess.Popen(["open", qr_data])  # macOS
+        except FileNotFoundError:
+            subprocess.Popen(["start", qr_data], shell=True)  # Windows
+    
     cv2.destroyAllWindows()
+    exit()
 
 def detect_qr_code(image):
+    # Get the original dimensions before preprocessing
+    original_height, original_width = image.shape[:2]
+
     processed_image = preprocess_image(image)
+    processed_height, processed_width = processed_image.shape[:2]
+
     qr_codes = decode(processed_image)
     
     for qr_code in qr_codes:
@@ -101,6 +112,13 @@ def detect_qr_code(image):
         
         # Draw a rectangle around the QR code
         (x, y, w, h) = qr_code.rect
+        # Scale bounding box to original image size
+        scale_x = original_width / processed_width
+        scale_y = original_height / processed_height
+        x = int(x * scale_x)
+        y = int(y * scale_y)
+        w = int(w * scale_x)
+        h = int(h * scale_y)
         cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
         
         trigger_action_on_qr_code(qr_data, image)
