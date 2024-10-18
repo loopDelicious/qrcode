@@ -1,0 +1,14 @@
+{
+    "$schema": "https://dl.viam.dev/module.schema.json",
+    "module_id": "joyce:pyzbar",
+    "visibility": "public",
+    "url": "https://github.com/loopDelicious/qrcode",
+    "description": "Detect and decode QR codes using the pyzbar library",
+    "models": [
+      {
+        "api": "rdk:service:vision",
+        "model": "joyce:vision:pyzbar"
+      }
+    ],
+    "entrypoint": "run.sh"
+  }

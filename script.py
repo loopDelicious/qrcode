@@ -11,7 +11,6 @@ from viam.services.vision import VisionClient
 import numpy as np
 import cv2
 from pyzbar.pyzbar import decode
-import webbrowser
 import subprocess
 
 load_dotenv()
@@ -20,6 +19,7 @@ LOGGER = getLogger(__name__)
 robot_api_key = os.getenv('ROBOT_API_KEY') or ''
 robot_api_key_id = os.getenv('ROBOT_API_KEY_ID') or ''
 robot_address = os.getenv('ROBOT_ADDRESS') or ''
+camera_name = os.getenv('CAMERA_NAME') or 'camera-1'
 
 async def connect():
     opts = RobotClient.Options.with_api_key( 
@@ -83,9 +83,7 @@ def trigger_action_on_qr_code(qr_data, image):
     # Ensure the QR data contains a URL scheme and open it
     if not qr_data.startswith("http"):
         qr_data = "http://" + qr_data
-
     print(f"Opening URL: {qr_data}")
-    # webbrowser.open(qr_data)
     try:
         subprocess.Popen(["xdg-open", qr_data])  # Linux
     except FileNotFoundError:
@@ -153,7 +151,7 @@ async def detect_qr_codes_from_viam_camera():
     robot = await connect()
     
     # Access the Viam camera
-    camera = Camera.from_robot(robot, "camera-1")  # Replace with your actual camera name
+    camera = Camera.from_robot(robot, camera_name) # Use the camera name from the environment variable
 
     while True:
         # Capture the image from the Viam camera
