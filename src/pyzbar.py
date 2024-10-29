@@ -25,11 +25,11 @@ import cv2
 from pyzbar.pyzbar import decode
 import subprocess
 import urllib.parse
+import time
 
 LOGGER = getLogger(__name__)
 
 class pyzbar(Vision, Reconfigurable):
-    
     """
     Custom Vision Service that uses pyzbar to detect QR codes.
     """
@@ -37,6 +37,10 @@ class pyzbar(Vision, Reconfigurable):
     MODEL: ClassVar[Model] = Model(ModelFamily("joyce", "vision"), "pyzbar")
     
     model: None
+
+    last_triggered: dict = {}
+
+    cooldown_period: int = 5
 
     # Constructor
     @classmethod
@@ -66,6 +70,32 @@ class pyzbar(Vision, Reconfigurable):
         cam_image = await self.get_cam_image(camera_name)
         return await self.detect_qr_code(cam_image)
 
+    async def get_detections(
+        self,
+        image: Image.Image,
+        *,
+        extra: Optional[Mapping[str, Any]] = None,
+        timeout: Optional[float] = None,
+    ) -> List[Detection]:
+        # Convert PIL image to ViamImage or OpenCV as needed
+        image_cv = np.array(image)
+        image_cv = cv2.cvtColor(image_cv, cv2.COLOR_RGB2BGR)
+        return self.detect_qr_code(ViamImage(data=image_cv.tobytes(), mime_type="image/jpeg"))
+
+    async def get_classifications(
+        self,
+        image: Image.Image,
+        count: int,
+        *,
+        extra: Optional[Mapping[str, Any]] = None,
+        timeout: Optional[float] = None,
+    ) -> List[Classification]:
+        """
+        This method is not implemented for QR code detection.
+        """
+        # No classifications are done, return an empty list
+        return []
+
     async def detect_qr_code(self, image: ViamImage) -> List[Detection]:
         """
         Detect QR codes in the given image using pyzbar.
@@ -84,11 +114,21 @@ class pyzbar(Vision, Reconfigurable):
             qr_data = qr_code.data.decode('utf-8')
             LOGGER.info(f"QR Code detected: {qr_data}")
 
-            # Trigger action based on the detected QR code
-            self.trigger_action_on_qr_code(qr_data)
+            # Only trigger action if it hasn't been triggered recently
+            current_time = time.time()
+            if qr_data not in self.last_triggered or (current_time - self.last_triggered[qr_data] > self.cooldown_period):  
+                self.trigger_action_on_qr_code(qr_data)
+                self.last_triggered[qr_data] = current_time
             
             # Create a Detection object for each QR code detected
             (x, y, w, h) = qr_code.rect
+            # Adjust bounding box to align with original image dimensions
+            scale_x = image_cv.shape[1] / processed_image.shape[1]
+            scale_y = image_cv.shape[0] / processed_image.shape[0]
+            x = int(x * scale_x)
+            y = int(y * scale_y)
+            w = int(w * scale_x)
+            h = int(h * scale_y)
             detection = Detection(x_min=x, y_min=y, x_max=x + w, y_max=y + h, class_name=qr_data, confidence=1.0)
             detections.append(detection)
         
@@ -109,7 +149,7 @@ class pyzbar(Vision, Reconfigurable):
     
     def trigger_action_on_qr_code(self, qr_data: str):
         """
-        Trigger an action based on the QR code data by opening the URL in a browser.
+        Trigger an action based on the QR code data by opening the URL in a browser (or logging URL).
         """
         LOGGER.info(f"Triggering action based on QR Code: {qr_data}")
         
@@ -119,8 +159,9 @@ class pyzbar(Vision, Reconfigurable):
             qr_data = "http://" + qr_data
             parsed_url = urllib.parse.urlparse(qr_data)
         
-        # Ensure the URL is well-formed before opening it
+        # Ensure the URL is well-formed
         if parsed_url.scheme in ("http", "https") and parsed_url.netloc:
+            LOGGER.info(f"Valid URL detected: {qr_data}")
             try:
                 subprocess.Popen(["xdg-open", qr_data])  # Linux
             except FileNotFoundError:
@@ -128,6 +169,8 @@ class pyzbar(Vision, Reconfigurable):
                     subprocess.Popen(["open", qr_data])  # macOS
                 except FileNotFoundError:
                     subprocess.Popen(["start", qr_data], shell=True)  # Windows
+                except Exception as e:
+                    LOGGER.warning(f"Cannot open browser: {e}")
         else:
             LOGGER.warning(f"Invalid URL detected: {qr_data}")
 
