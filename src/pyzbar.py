@@ -23,8 +23,8 @@ from viam.media.utils.pil import viam_to_pil_image
 import numpy as np
 import cv2
 from pyzbar.pyzbar import decode
-import subprocess
-import urllib.parse
+# import subprocess
+# import urllib.parse
 import time
 
 LOGGER = getLogger(__name__)
@@ -149,30 +149,11 @@ class pyzbar(Vision, Reconfigurable):
     
     def trigger_action_on_qr_code(self, qr_data: str):
         """
-        Trigger an action based on the QR code data by opening the URL in a browser (or logging URL).
+        Trigger an action based on the QR code data.
         """
+        
+        # Can add custom logic here
         LOGGER.info(f"Triggering action based on QR Code: {qr_data}")
-        
-        # Validate and parse the QR data as a URL
-        parsed_url = urllib.parse.urlparse(qr_data)
-        if not parsed_url.scheme:
-            qr_data = "http://" + qr_data
-            parsed_url = urllib.parse.urlparse(qr_data)
-        
-        # Ensure the URL is well-formed
-        if parsed_url.scheme in ("http", "https") and parsed_url.netloc:
-            LOGGER.info(f"Valid URL detected: {qr_data}")
-            try:
-                subprocess.Popen(["xdg-open", qr_data])  # Linux
-            except FileNotFoundError:
-                try:
-                    subprocess.Popen(["open", qr_data])  # macOS
-                except FileNotFoundError:
-                    subprocess.Popen(["start", qr_data], shell=True)  # Windows
-                except Exception as e:
-                    LOGGER.warning(f"Cannot open browser: {e}")
-        else:
-            LOGGER.warning(f"Invalid URL detected: {qr_data}")
 
     async def get_classifications_from_camera(self, camera_name: str, count: int, *, extra: Optional[Mapping[str, Any]] = None, timeout: Optional[float] = None) -> List[Classification]:
         """
